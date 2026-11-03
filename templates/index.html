@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF ke EPUB</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+{% macro tidy_panel() %}
+  <fieldset class="tidy">
+    <div class="row two">
+      <label>Font
+        <select name="font" class="font-select">
+          <option value="default">Bawaan pembaca e-book</option>
+          <option value="serif">Serif (Georgia)</option>
+          <option value="sans">Sans-serif (Segoe UI / Arial)</option>
+          <option value="mono">Monospace</option>
+          <option value="custom">Upload font sendiri…</option>
+        </select>
+      </label>
+      <label>Perataan teks
+        <select name="align">
+          <option value="justify">Rata kanan-kiri</option>
+          <option value="left">Rata kiri</option>
+        </select>
+      </label>
+    </div>
+    <div class="row font-file-row" hidden>
+      <label>File font (.ttf, .otf, .woff, .woff2)
+        <input type="file" name="font_file" accept=".ttf,.otf,.woff,.woff2">
+      </label>
+    </div>
+    <div class="row two">
+      <label>Ukuran font: <output>100</output>%
+        <input type="range" name="font_size" min="80" max="150" step="5" value="100">
+      </label>
+      <label>Jarak baris: <output>1.5</output>
+        <input type="range" name="line_height" min="1.2" max="2" step="0.1" value="1.5">
+      </label>
+    </div>
+    <div class="checks">
+      <label class="check"><input type="checkbox" name="indent"> Indentasi awal paragraf <small>(gaya buku cetak)</small></label>
+      <label class="check"><input type="checkbox" name="clean_text" checked> Bersihkan teks <small>(spasi ganda, tanda baca, tanda kutip, ligatur, karakter aneh)</small></label>
+      <label class="check"><input type="checkbox" name="merge_paragraphs" checked> Gabung paragraf yang terpotong</label>
+      <label class="check"><input type="checkbox" name="fix_headings" checked> Rapikan judul <small>(JUDUL KAPITAL → Judul Kapital)</small></label>
+    </div>
+    <div class="preview" aria-label="Pratinjau tampilan">
+      <span class="preview-label">Pratinjau</span>
+      <p>PT Semen Padang merupakan pabrik semen tertua di Indonesia yang berdiri sejak tahun 1910. Lokasinya berada di Indarung, Kota Padang, Sumatera Barat.</p>
+      <p>Paragraf kedua menunjukkan jarak antarparagraf dan indentasi sesuai pengaturan di atas.</p>
+    </div>
+  </fieldset>
+{% endmacro %}
+
+  <main class="card">
+    <h1>PDF ke EPUB</h1>
+    <p class="sub">Ubah PDF menjadi e-book EPUB, atau rapikan font dan penulisan EPUB yang sudah ada. Semua proses berjalan di komputer ini.</p>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" role="tab" data-tab="form-convert" aria-selected="true">PDF → EPUB</button>
+      <button type="button" class="tab" role="tab" data-tab="form-tidy" aria-selected="false">Rapikan EPUB</button>
+    </nav>
+
+    <form id="form-convert" class="job-form" data-url="/convert">
+      <label class="drop">
+        <input type="file" name="file" accept=".pdf,application/pdf" hidden>
+        <span class="drop-text">Seret file PDF ke sini atau <u>klik untuk memilih</u></span>
+      </label>
+
+      <fieldset class="modes">
+        <legend>Mode konversi</legend>
+        <label class="mode">
+          <input type="radio" name="mode" value="text" checked>
+          <span><strong>Teks</strong><small>Untuk buku/dokumen. Teks menyesuaikan ukuran layar.</small></span>
+        </label>
+        <label class="mode">
+          <input type="radio" name="mode" value="image">
+          <span><strong>Gambar</strong><small>Untuk scan/komik. Tampilan persis seperti PDF.</small></span>
+        </label>
+      </fieldset>
+
+      <div class="row ocr-row">
+        <label class="check">
+          <input type="checkbox" name="ocr" {% if ocr_available %}checked{% else %}disabled{% endif %}>
+          OCR halaman hasil scan
+          <small>
+            {% if ocr_available %}(teks dari PDF scan dibaca otomatis, Indonesia + Inggris; ±3 detik per halaman scan)
+            {% else %}— tidak tersedia: Tesseract OCR belum terpasang{% endif %}
+          </small>
+        </label>
+      </div>
+
+      <fieldset class="modes quality-row" hidden>
+        <legend>Kualitas gambar</legend>
+        <label class="mode">
+          <input type="radio" name="quality" value="kecil">
+          <span><strong>Kecil</strong><small>File paling ringan, cukup untuk dibaca di HP.</small></span>
+        </label>
+        <label class="mode">
+          <input type="radio" name="quality" value="sedang" checked>
+          <span><strong>Sedang</strong><small>Seimbang antara ketajaman dan ukuran.</small></span>
+        </label>
+        <label class="mode">
+          <input type="radio" name="quality" value="tinggi">
+          <span><strong>Tinggi</strong><small>Paling tajam, ukuran file paling besar.</small></span>
+        </label>
+      </fieldset>
+
+      <div class="row two">
+        <label>Judul (opsional)<input type="text" name="title" placeholder="Dari metadata PDF"></label>
+        <label>Penulis (opsional)<input type="text" name="author" placeholder="Dari metadata PDF"></label>
+      </div>
+
+      <details class="tidy-details">
+        <summary>Rapikan font &amp; penulisan</summary>
+        <p class="hint image-hint" hidden>Tidak berlaku untuk mode Gambar.</p>
+        {{ tidy_panel() }}
+      </details>
+
+      <button type="submit" disabled>Konversi</button>
+    </form>
+
+    <form id="form-tidy" class="job-form" data-url="/tidy" hidden>
+      <label class="drop">
+        <input type="file" name="file" accept=".epub,application/epub+zip" hidden>
+        <span class="drop-text">Seret file EPUB ke sini atau <u>klik untuk memilih</u></span>
+      </label>
+      <p class="hint">Bisa EPUB hasil tool ini atau dari sumber lain (tanpa DRM). EPUB mode Gambar tidak bisa dirapikan.</p>
+      {{ tidy_panel() }}
+      <button type="submit" disabled>Rapikan</button>
+    </form>
+
+    <div id="progress" class="progress" hidden>
+      <div class="progress-head">
+        <span id="progress-msg">Mengunggah…</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+    </div>
+
+    <p id="status" class="status" role="status"></p>
+  </main>
+
+  <script>
+    const forms = [...document.querySelectorAll('.job-form')];
+    const status = document.getElementById('status');
+    const progressBox = document.getElementById('progress');
+    const progressMsg = document.getElementById('progress-msg');
+    const progressPct = document.getElementById('progress-pct');
+    const progressFill = document.getElementById('progress-fill');
+    const progressTrack = progressBox.querySelector('.progress-track');
+    let busy = false;
+
+    function setStatus(msg, kind = '') {
+      status.textContent = msg;
+      status.className = 'status ' + kind;
+    }
+
+    function setProgress(percent, message) {
+      percent = Math.max(0, Math.min(100, Math.round(percent)));
+      progressFill.style.width = percent + '%';
+      progressPct.textContent = percent + '%';
+      progressTrack.setAttribute('aria-valuenow', percent);
+      if (message) progressMsg.textContent = message;
+    }
+
+    // ---- tab
+    document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
+      if (busy) return;
+      document.querySelectorAll('.tab').forEach(t => {
+        const active = t === tab;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', active);
+        document.getElementById(t.dataset.tab).hidden = !active;
+      });
+      progressBox.hidden = true;
+      setStatus('');
+    }));
+
+    // ---- slider: tampilkan nilainya di <output>
+    document.querySelectorAll('input[type=range]').forEach(range => {
+      const out = range.closest('label').querySelector('output');
+      range.addEventListener('input', () => out.textContent = range.value);
+    });
+
+    // ---- pratinjau panel perapian
+    const FONT_STACKS = {
+      default: 'inherit',
+      serif: 'Georgia, "Times New Roman", serif',
+      sans: '"Segoe UI", Helvetica, Arial, sans-serif',
+      mono: 'Consolas, "Courier New", monospace',
+    };
+    let previewFontCount = 0;
+
+    function setupTidyPanel(panel) {
+      const preview = panel.querySelector('.preview');
+      const fontSelect = panel.querySelector('[name=font]');
+      const fontFileRow = panel.querySelector('.font-file-row');
+      const fontFile = panel.querySelector('[name=font_file]');
+      let customFamily = null;
+
+      async function loadCustomFont() {
+        customFamily = null;
+        const file = fontFile.files[0];
+        if (!file) return;
+        try {
+          const family = 'PreviewFont' + (++previewFontCount);
+          const face = new FontFace(family, await file.arrayBuffer());
+          document.fonts.add(await face.load());
+          customFamily = `"${family}", serif`;
+        } catch {
+          setStatus('File font tidak bisa dibaca untuk pratinjau.', 'error');
+        }
+      }
+
+      function update() {
+        const font = fontSelect.value;
+        fontFileRow.hidden = font !== 'custom';
+        const indent = panel.querySelector('[name=indent]').checked;
+        preview.style.fontFamily = font === 'custom' ? (customFamily || 'inherit') : FONT_STACKS[font];
+        preview.style.fontSize = panel.querySelector('[name=font_size]').value / 100 + 'em';
+        preview.style.lineHeight = panel.querySelector('[name=line_height]').value;
+        preview.querySelectorAll('p').forEach((p, i) => {
+          p.style.textAlign = panel.querySelector('[name=align]').value;
+          p.style.textIndent = indent && i > 0 ? '1.5em' : '0';
+          p.style.margin = indent ? '0' : '0 0 0.8em 0';
+        });
+      }
+
+      fontFile.addEventListener('change', async () => { await loadCustomFont(); update(); });
+      panel.addEventListener('input', update);
+      panel.addEventListener('change', update);
+      update();
+    }
+    document.querySelectorAll('.tidy').forEach(setupTidyPanel);
+
+    // ---- form konversi: DPI & panel perapian sesuai mode
+    const convertForm = document.getElementById('form-convert');
+    convertForm.addEventListener('change', () => {
+      const image = convertForm.mode.value === 'image';
+      convertForm.querySelector('.quality-row').hidden = !image;
+      convertForm.querySelector('.ocr-row').hidden = image;
+      convertForm.querySelector('.tidy').disabled = image;
+      convertForm.querySelector('.image-hint').hidden = !image;
+    });
+
+    // ---- upload & proses
+    function upload(url, formData) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.responseType = 'json';
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) setProgress(e.loaded / e.total * 100, 'Mengunggah file…');
+        };
+        xhr.onload = () => {
+          const body = xhr.response || {};
+          if (xhr.status === 200 && body.job_id) resolve(body.job_id);
+          else reject(new Error(body.error || `Gagal (HTTP ${xhr.status})`));
+        };
+        xhr.onerror = () => reject(new Error('Tidak bisa terhubung ke server.'));
+        xhr.send(formData);
+      });
+    }
+
+    async function waitForJob(jobId) {
+      while (true) {
+        const res = await fetch(`/progress/${jobId}`);
+        const job = await res.json();
+        if (!res.ok || job.error) throw new Error(job.error || `Gagal (HTTP ${res.status})`);
+        setProgress(job.percent, job.message);
+        if (job.done) return job.message;
+        await new Promise(r => setTimeout(r, 400));
+      }
+    }
+
+    function setupForm(form) {
+      const input = form.querySelector('input[name=file]');
+      const drop = form.querySelector('.drop');
+      const dropText = drop.querySelector('.drop-text');
+      const submit = form.querySelector('button[type=submit]');
+
+      function setFile(file) {
+        if (!file) return;
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        dropText.textContent = `${file.name} (${(file.size / 1048576).toFixed(1)} MB)`;
+        drop.classList.add('has-file');
+        submit.disabled = false;
+        setStatus('');
+      }
+
+      input.addEventListener('change', () => setFile(input.files[0]));
+      ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => {
+        e.preventDefault(); drop.classList.add('over');
+      }));
+      ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => {
+        e.preventDefault(); drop.classList.remove('over');
+      }));
+      drop.addEventListener('drop', e => setFile(e.dataTransfer.files[0]));
+
+      form.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!input.files.length || busy) return;
+        busy = true;
+        forms.forEach(f => f.querySelector('button[type=submit]').disabled = true);
+        setStatus('');
+        progressBox.hidden = false;
+        progressBox.classList.remove('error');
+        setProgress(0, 'Mengunggah file…');
+        try {
+          const jobId = await upload(form.dataset.url, new FormData(form));
+          setProgress(0, 'Memulai…');
+          const message = await waitForJob(jobId);
+          setProgress(100, message);
+          const a = document.createElement('a');
+          a.href = `/download/${jobId}`;
+          a.click();
+          setStatus(`${message}. File EPUB sedang diunduh.`, 'ok');
+        } catch (err) {
+          progressBox.classList.add('error');
+          setStatus(err.message, 'error');
+        } finally {
+          busy = false;
+          forms.forEach(f => {
+            f.querySelector('button[type=submit]').disabled = !f.querySelector('input[name=file]').files.length;
+          });
+        }
+      });
+    }
+    forms.forEach(setupForm);
+  </script>
+</body>
+</html>
